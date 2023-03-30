@@ -1,24 +1,18 @@
 #include <stdio.h>
-#include <string.h>
-#include "linenoise.h"
-
-void completion(const char *buf, linenoiseCompletions *lc) {
-    if (buf[0] == 'h') {
-        linenoiseAddCompletion(lc, "hello");
-        linenoiseAddCompletion(lc, "happy");
-    }
-}
+#include <stdlib.h>
+#include "debugger.h"
 
 int main(int argc, char const *argv[]) {
 
-    linenoiseSetCompletionCallback(completion);
-
-    char *line = NULL;
-    while ((line = linenoise("(qdb) ")) != NULL) {
-        printf("%s\n", line);
-        if (strcmp(line, "quit") == 0)
-            break;
+    if (argc <= 1) {
+        printf("usage: qdb <tracee>\n");
+        return EXIT_FAILURE;
     }
+
+    Debugger *d = create_debugger();
+    init_debugger(d, argv[1]);
+    run_debugger(d);
+    destroy_debugger(d);
 
     return 0;
 }

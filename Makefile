@@ -6,7 +6,7 @@ SHELL := /bin/bash
 CC := gcc
 
 CFLAGS := -g -Ideps/linenoise
-LDFLAGS :=
+LDFLAGS := -ldwarf
 
 QDB_SRCS := main.c debugger.c
 QDB_SRCS := $(addprefix src/, $(QDB_SRCS))
@@ -39,7 +39,7 @@ deps_clean:
 	$(Q)$(call clean_deps, $(DEP_PROJECTS))
 
 qdb: $(QDB_OBJS)
-	$(Q)$(CC) $(LDFLAGS) $^ -o $@
+	$(Q)$(CC) $^ $(LDFLAGS) -o $@
 
 %.o: %.c
 	$(CC) -c -MM $(CFLAGS) $< -MT $@ >> .dep
