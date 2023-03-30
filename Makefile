@@ -8,7 +8,7 @@ CC := gcc
 CFLAGS := -g -Ideps/linenoise
 LDFLAGS :=
 
-QDB_SRCS := main.c
+QDB_SRCS := main.c debugger.c
 QDB_SRCS := $(addprefix src/, $(QDB_SRCS))
 QDB_OBJS := $(QDB_SRCS:%.c=%.o)
 
@@ -41,7 +41,12 @@ deps_clean:
 qdb: $(QDB_OBJS)
 	$(Q)$(CC) $(LDFLAGS) $^ -o $@
 
+%.o: %.c
+	$(CC) -c -MM $(CFLAGS) $< -MT $@ >> .dep
+	$(CC) -c $(CFLAGS) $< -o $@
+
 clean: deps_clean
-	$(Q)rm -rf $(QDB_OBJS) qdb
+	$(Q)rm -rf $(QDB_OBJS) qdb .dep
 
 .PHONY: all deps_build clean
+-include *.dep

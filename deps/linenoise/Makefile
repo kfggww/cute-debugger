@@ -1,3 +1,4 @@
+CFLAGS := -g
 
 linenoise.o: linenoise.c
 	$(CC) -c $(CFLAGS) $< -o $@
