@@ -28,7 +28,7 @@ static void *search_func_lowpc(DebugInfoManager *mgr, const char *func_name) {
 }
 
 /*Get the base memory map of tracee*/
-static void *tracee_map_base(Debugger *debugger) { return NULL; }
+static void *tracee_base_map(Debugger *debugger) { return NULL; }
 
 /*Debugger APIs*/
 Debugger *create_debugger() { return NULL; }
