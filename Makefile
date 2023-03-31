@@ -30,7 +30,7 @@ define clean_deps
 	done;
 endef
 
-all: deps_build qdb
+all: deps_build qdb test
 
 deps_build:
 	$(Q)$(call build_deps, $(DEP_PROJECTS))
@@ -41,12 +41,15 @@ deps_clean:
 qdb: $(QDB_OBJS)
 	$(Q)$(CC) $^ $(LDFLAGS) -o $@
 
+test: src/test.c
+	$(CC) $(CFLAGS) $< -o $@
+
 %.o: %.c
 	$(CC) -c -MM $(CFLAGS) $< -MT $@ >> .dep
 	$(CC) -c $(CFLAGS) $< -o $@
 
 clean: deps_clean
-	$(Q)rm -rf $(QDB_OBJS) qdb .dep
+	$(Q)rm -rf $(QDB_OBJS) qdb .dep test
 
 .PHONY: all deps_build clean
 -include *.dep

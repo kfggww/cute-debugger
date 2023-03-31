@@ -15,9 +15,14 @@
 
 /*State of breakpoints*/
 enum {
-    BRPT_UNUSED,
-    BRPT_ENABLED,
-    BRPT_DISABLED,
+    BREAKPOINT_UNUSED,
+    BREAKPOINT_ENABLED,
+    BREAKPOINT_DISABLED,
+};
+
+enum {
+    RET_SUCCESS,
+    RET_ERROR,
 };
 
 /*Debugger manipulates breakpoint*/
@@ -29,7 +34,29 @@ static int enable_breakpoint(Debugger *d, int id) {}
 static int disable_breakpoint(Debugger *d, int id) {}
 
 /*Debugger manipulates tracee*/
-int start_tracee(Debugger *d) {}
+int start_tracee(Debugger *d) {
+    pid_t pid = fork();
+    if (pid == 0) { // In tracee
+        printf("starting tracee: %s\n", d->tracee_name);
+
+        long ret = ptrace(PTRACE_TRACEME, 0, NULL, NULL);
+        if (ret == -1) {
+            printf("ptrace PTRACE_TRACEME fail\n");
+            exit(EXIT_FAILURE);
+        }
+
+        execl(d->tracee_name, d->tracee_name, NULL);
+
+        printf("You should NEVER see this...\n");
+        exit(EXIT_FAILURE);
+    } else if (pid < 0) {
+        return RET_ERROR;
+    }
+
+    d->tracee_pid = pid;
+    return RET_SUCCESS;
+}
+
 int wait_tracee(Debugger *d) {}
 
 /*Create and destroy debug info manager*/
@@ -96,7 +123,7 @@ void init_debugger(Debugger *d, const char *tracee_name) {
     d->tracee_ops = &default_tracee_ops;
 
     for (int i = 0; i < DEBUGGER_NBREAKPOINTS; i++)
-        d->breakpoints[i].state = BRPT_UNUSED;
+        d->breakpoints[i].state = BREAKPOINT_UNUSED;
 }
 
 void run_debugger(Debugger *d) {
