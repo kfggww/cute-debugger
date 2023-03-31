@@ -10,6 +10,7 @@
 #include <sys/ptrace.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <fcntl.h>
 #include <unistd.h>
 
@@ -23,6 +24,9 @@ enum {
 enum {
     RET_SUCCESS,
     RET_ERROR,
+    RET_TRACEE_EXIT,
+    RET_TRACEE_STOP,
+    RET_TRACEE_UNKNOW,
 };
 
 /*Debugger manipulates breakpoint*/
@@ -57,7 +61,20 @@ int start_tracee(Debugger *d) {
     return RET_SUCCESS;
 }
 
-int wait_tracee(Debugger *d) {}
+int wait_tracee(Debugger *d) {
+    int status;
+    pid_t pid = waitpid(d->tracee_pid, &status, 0);
+    if (pid == -1 || pid != d->tracee_pid) {
+        return RET_ERROR;
+    }
+
+    if (WIFEXITED(status))
+        return RET_TRACEE_EXIT;
+    else if (WIFSTOPPED(status))
+        return RET_TRACEE_STOP;
+    else
+        return RET_TRACEE_UNKNOW;
+}
 
 /*Create and destroy debug info manager*/
 static DebugInfoManager *create_info_manager(const char *tracee_name) {
@@ -130,8 +147,21 @@ void run_debugger(Debugger *d) {
     d->tracee_ops->start_tracee(d);
     int ret = d->tracee_ops->wait_tracee(d);
 
+    if (ret == RET_TRACEE_EXIT || ret == RET_TRACEE_UNKNOW) {
+        printf("tracee exit\n");
+        return;
+    }
+
     char *line = NULL;
     while ((line = linenoise("(qdb) ")) != NULL) {
+        if (ret == RET_TRACEE_EXIT || ret == RET_TRACEE_UNKNOW) {
+            printf("tracee exit\n");
+            break;
+        }
+
+        /*Extract the command from line*/
+
+        ret = d->tracee_ops->wait_tracee(d);
     }
 }
 
