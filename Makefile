@@ -8,7 +8,7 @@ CC := gcc
 CFLAGS := -g -Ideps/linenoise
 LDFLAGS := -ldwarf
 
-QDB_SRCS := main.c debugger.c
+QDB_SRCS := main.c debugger.c command.c breakpoint.c dbginfo.c
 QDB_SRCS := $(addprefix src/, $(QDB_SRCS))
 QDB_OBJS := $(QDB_SRCS:%.c=%.o)
 
@@ -52,4 +52,4 @@ clean: deps_clean
 	$(Q)rm -rf $(QDB_OBJS) qdb .dep test
 
 .PHONY: all deps_build clean
--include *.dep
+-include .dep

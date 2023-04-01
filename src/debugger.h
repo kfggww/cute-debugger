@@ -1,24 +1,22 @@
 #ifndef DEBUGGER_H
 #define DEBUGGER_H
 
-#include <stdint.h>
+#include "breakpoint.h"
+#include "dbginfo.h"
 #include <sys/types.h>
-#include <libdwarf/dwarf.h>
-#include <libdwarf/libdwarf.h>
 
 #define DEBUGGER_NBREAKPOINTS 16
 
-typedef struct BreakPoint {
-    void *addr;
-    long data;
-    int state;
-    int hits;
-} BreakPoint;
-
-typedef struct DebugInfoManager {
-    Dwarf_Debug dbg;
-    uint16_t elf_type;
-} DebugInfoManager;
+typedef enum RetCode {
+    QDB_SUCCESS,
+    QDB_ERROR,
+    QDB_TRACEE_EXIT,
+    QDB_TRACEE_STOP,
+    QDB_TRACEE_UNKNOW,
+    QDB_DEBUGGER_MORE_INPUT,
+    QDB_DEBUGGER_CONTINUE,
+    QDB_DEBUGGER_EXIT,
+} RetCode;
 
 struct BreakPointOps;
 struct TraceeOps;
@@ -34,18 +32,17 @@ typedef struct Debugger {
 } Debugger;
 
 typedef struct BreakPointOps {
-    int (*add_breakpoint_by_addr)(Debugger *d, void *addr);
-    int (*add_breakpoint_by_lineno)(Debugger *d, int lineno);
-    int (*add_breakpoint_by_fn)(Debugger *d, const char *fn_name);
-    int (*remove_breakpoint)(Debugger *d, int id);
-    int (*enable_breakpoint)(Debugger *d, int id);
-    int (*disable_breakpoint)(Debugger *d, int id);
+    RetCode (*add_breakpoint_by_addr)(Debugger *d, void *addr);
+    RetCode (*add_breakpoint_by_lineno)(Debugger *d, int lineno);
+    RetCode (*add_breakpoint_by_fn)(Debugger *d, const char *fn_name);
+    RetCode (*remove_breakpoint)(Debugger *d, int id);
+    RetCode (*enable_breakpoint)(Debugger *d, int id);
+    RetCode (*disable_breakpoint)(Debugger *d, int id);
 } BreakPointOps;
 
 typedef struct TraceeOps {
-    int (*start_tracee)(Debugger *d);
-    int (*wait_tracee)(Debugger *d);
-    void (*handle_tracee_hits)(Debugger *d);
+    RetCode (*start_tracee)(Debugger *d);
+    RetCode (*wait_tracee)(Debugger *d);
 } TraceeOps;
 
 /*Debugger APIs*/
