@@ -27,6 +27,88 @@ enum {
     RET_TRACEE_EXIT,
     RET_TRACEE_STOP,
     RET_TRACEE_UNKNOW,
+    RET_DEBUGGER_MORE_INPUT,
+    RET_DEBUGGER_CONTINUE,
+    RET_DEBUGGER_EXIT,
+};
+
+/*Command types that handled by debugger*/
+enum {
+    CMD_BREAK,
+    CMD_BREAK_INFO,
+    CMD_BREAK_ENABLE,
+    CMD_BREAK_DISABLE,
+    CMD_BREAK_DELETE,
+    CMD_STEP,
+    CMD_STEPI,
+    CMD_CONTINUE,
+    CMD_LIST_SOURCE,
+    CMD_QUIT,
+    CMD_UNKNOWN,
+};
+
+/*Breakpoint setting types*/
+enum {
+    SET_LINENO,
+    SET_ADDR,
+    SET_FNNAME,
+};
+
+/*Command argument*/
+typedef struct CommandArgument {
+    int type;
+    union {
+        /*Set breakpoint*/
+        struct {
+            int set_method;
+            int lineno;
+            void *addr;
+            const char *fn_name;
+        };
+        /*Enable, disable or delete breakpoint*/
+        union {
+            int enable_id;
+            int disable_id;
+            int delete_id;
+        };
+    } args;
+} CommandArgument;
+
+typedef int (*CommandHandler)(Debugger *d, CommandArgument *arg);
+
+/*Check the command type and argument from using input*/
+int check_command(const char *line, CommandArgument *arg) {
+    if (strstr(line, "break")) {
+        return CMD_BREAK;
+    } else if (strstr(line, "quit")) {
+        return CMD_QUIT;
+    }
+}
+
+/*Command handlers*/
+int command_break(Debugger *d, CommandArgument *arg) {
+    printf("set breakpoint done\n");
+    return RET_DEBUGGER_MORE_INPUT;
+}
+int command_break_info(Debugger *d, CommandArgument *arg) {}
+int command_break_enable(Debugger *d, CommandArgument *arg) {}
+int command_break_disable(Debugger *d, CommandArgument *arg) {}
+int command_break_delete(Debugger *d, CommandArgument *arg) {}
+int command_step(Debugger *d, CommandArgument *arg) {}
+int command_stepi(Debugger *d, CommandArgument *arg) {}
+int command_continue(Debugger *d, CommandArgument *arg) {}
+int command_list_source(Debugger *d, CommandArgument *arg) {}
+int command_quit(Debugger *d, CommandArgument *arg) {
+    printf("debugger exit\n");
+    return RET_DEBUGGER_EXIT;
+}
+int command_unknown(Debugger *d, CommandArgument *arg) {}
+
+static CommandHandler cmd_handlers[] = {
+    command_break,         command_break_info,   command_break_enable,
+    command_break_disable, command_break_delete, command_step,
+    command_stepi,         command_continue,     command_list_source,
+    command_quit,          command_unknown,
 };
 
 /*Debugger manipulates breakpoint*/
@@ -49,6 +131,7 @@ int start_tracee(Debugger *d) {
             exit(EXIT_FAILURE);
         }
 
+        // TODO: handle extra arguments of the tracee
         execl(d->tracee_name, d->tracee_name, NULL);
 
         printf("You should NEVER see this...\n");
@@ -75,6 +158,8 @@ int wait_tracee(Debugger *d) {
     else
         return RET_TRACEE_UNKNOW;
 }
+
+void handle_tracee_hits(Debugger *d) {}
 
 /*Create and destroy debug info manager*/
 static DebugInfoManager *create_info_manager(const char *tracee_name) {
@@ -121,6 +206,7 @@ static BreakPointOps default_breakpoint_ops = {
 static TraceeOps default_tracee_ops = {
     .start_tracee = start_tracee,
     .wait_tracee = wait_tracee,
+    .handle_tracee_hits = handle_tracee_hits,
 };
 
 /*Debugger APIs*/
@@ -155,13 +241,24 @@ void run_debugger(Debugger *d) {
     char *line = NULL;
     while ((line = linenoise("(qdb) ")) != NULL) {
         if (ret == RET_TRACEE_EXIT || ret == RET_TRACEE_UNKNOW) {
+            linenoiseFree(line);
             printf("tracee exit\n");
             break;
         }
 
-        /*Extract the command from line*/
+        /*Handle user command*/
+        CommandArgument arg;
+        int cmd_type = check_command(line, &arg);
+        int cmd_ret = cmd_handlers[cmd_type](d, &arg);
+        linenoiseFree(line);
+
+        if (cmd_ret == RET_DEBUGGER_MORE_INPUT)
+            continue;
+        else if (cmd_ret == RET_DEBUGGER_EXIT)
+            break;
 
         ret = d->tracee_ops->wait_tracee(d);
+        d->tracee_ops->handle_tracee_hits(d);
     }
 }
 

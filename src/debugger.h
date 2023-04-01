@@ -12,6 +12,7 @@ typedef struct BreakPoint {
     void *addr;
     long data;
     int state;
+    int hits;
 } BreakPoint;
 
 typedef struct DebugInfoManager {
@@ -44,6 +45,7 @@ typedef struct BreakPointOps {
 typedef struct TraceeOps {
     int (*start_tracee)(Debugger *d);
     int (*wait_tracee)(Debugger *d);
+    void (*handle_tracee_hits)(Debugger *d);
 } TraceeOps;
 
 /*Debugger APIs*/
