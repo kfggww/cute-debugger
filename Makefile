@@ -42,7 +42,7 @@ qdb: $(QDB_OBJS)
 	$(Q)$(CC) $^ $(LDFLAGS) -o $@
 
 test: src/test.c
-	$(CC) $(CFLAGS) $< -o $@
+	$(CC) $(CFLAGS) -static $< -o $@
 
 %.o: %.c
 	$(CC) -c -MM $(CFLAGS) $< -MT $@ >> .dep

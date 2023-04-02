@@ -10,7 +10,8 @@ typedef enum BreakPointState {
 
 typedef struct BreakPoint {
     void *addr;
-    long data;
+    long data_original;
+    long data_trap;
     BreakPointState state;
     int hits;
 } BreakPoint;

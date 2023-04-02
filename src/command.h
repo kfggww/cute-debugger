@@ -24,7 +24,7 @@ typedef struct CommandArgument {
             int set_method;
             int lineno;
             void *addr;
-            const char *fnname;
+            char fnname[32];
         } set_brkpt;
         struct { /*enable breakpoint*/
             int id;

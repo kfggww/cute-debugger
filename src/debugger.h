@@ -25,11 +25,12 @@ typedef struct Debugger {
     const char *tracee_name;
     pid_t tracee_pid;
     DebugInfoManager *info_manager;
-    int breakpoint_index;
     BreakPoint breakpoints[DEBUGGER_NBREAKPOINTS];
     struct BreakPointOps *breakpoint_ops;
     struct TraceeOps *tracee_ops;
 } Debugger;
+
+struct user_regs_struct;
 
 typedef struct BreakPointOps {
     RetCode (*add_breakpoint_by_addr)(Debugger *d, void *addr);
@@ -38,11 +39,14 @@ typedef struct BreakPointOps {
     RetCode (*remove_breakpoint)(Debugger *d, int id);
     RetCode (*enable_breakpoint)(Debugger *d, int id);
     RetCode (*disable_breakpoint)(Debugger *d, int id);
+    RetCode (*on_breakpoint_hit)(Debugger *d, int id,
+                                 struct user_regs_struct *user_regs);
 } BreakPointOps;
 
 typedef struct TraceeOps {
     RetCode (*start_tracee)(Debugger *d);
     RetCode (*wait_tracee)(Debugger *d);
+    RetCode (*continue_tracee)(Debugger *d);
 } TraceeOps;
 
 /*Debugger APIs*/
