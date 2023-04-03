@@ -15,6 +15,10 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+/*linenoise callbacks*/
+extern void completion_callback(const char *buf, linenoiseCompletions *lc);
+extern char *hint_callback(const char *buf, int *color, int *bold);
+
 /*Debugger manipulates breakpoint*/
 static RetCode add_breakpoint1(Debugger *d, void *addr) {
     /*Find a unused breakpoint*/
@@ -205,6 +209,10 @@ void init_debugger(Debugger *d, const char *tracee_name) {
 }
 
 void run_debugger(Debugger *d) {
+    /*Setting up linenoise*/
+    linenoiseSetCompletionCallback(completion_callback);
+    linenoiseSetHintsCallback(hint_callback);
+
     d->tracee_ops->start_tracee(d);
     RetCode ret = d->tracee_ops->wait_tracee(d);
 

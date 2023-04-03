@@ -10,7 +10,7 @@
 
 /*Command handlers*/
 static RetCode handle_break_cmd(Debugger *d, CommandArgument *arg) {
-    RetCode ret;
+    RetCode ret = QDB_ERROR;
     if (arg->data.set_brkpt.set_method == SET_BREAKPOINT_ADDR) {
         ret = d->breakpoint_ops->add_breakpoint_by_addr(
             d, arg->data.set_brkpt.addr);
