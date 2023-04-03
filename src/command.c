@@ -10,10 +10,11 @@
 
 /*Command handlers*/
 static RetCode handle_break_cmd(Debugger *d, CommandArgument *arg) {
+    RetCode ret;
     if (arg->data.set_brkpt.set_method == SET_BREAKPOINT_ADDR) {
-        RetCode ret = d->breakpoint_ops->add_breakpoint_by_addr(
+        ret = d->breakpoint_ops->add_breakpoint_by_addr(
             d, arg->data.set_brkpt.addr);
-        return ret == QDB_SUCCESS ? QDB_DEBUGGER_MORE_INPUT : QDB_DEBUGGER_EXIT;
+        return ret;
     }
 }
 
@@ -27,12 +28,35 @@ static RetCode handle_break_delete_cmd(Debugger *d, CommandArgument *arg) {}
 
 static RetCode handle_step_cmd(Debugger *d, CommandArgument *arg) {}
 
-static RetCode handle_stepi_cmd(Debugger *d, CommandArgument *arg) {}
+static RetCode handle_stepi_cmd(Debugger *d, CommandArgument *arg) {
+    RetCode ret = QDB_ERROR;
+    if (d->hit_index >= 0 && d->hit_index < DEBUGGER_NBREAKPOINTS) {
+        ret = d->breakpoint_ops->on_breakpoint_hit(d);
+        if (ret == QDB_ERROR)
+            return QDB_TRACEE_UNKNOW;
+        return ret;
+    } else {
+        long err = ptrace(PTRACE_SINGLESTEP, d->tracee_pid, NULL, NULL);
+        if (err == -1)
+            return QDB_TRACEE_UNKNOW;
+        ret = d->tracee_ops->wait_tracee(d);
+        return ret;
+    }
+}
 
 static RetCode handle_continue_cmd(Debugger *d, CommandArgument *arg) {
+    RetCode ret = QDB_ERROR;
+    if (d->hit_index >= 0 && d->hit_index < DEBUGGER_NBREAKPOINTS)
+        ret = d->breakpoint_ops->on_breakpoint_hit(d);
+    if (ret == QDB_ERROR)
+        return QDB_TRACEE_UNKNOW;
+
     long err = -1;
     err = ptrace(PTRACE_CONT, d->tracee_pid, NULL, NULL);
-    return err != -1 ? QDB_DEBUGGER_CONTINUE : QDB_DEBUGGER_MORE_INPUT;
+    if (err == -1)
+        return QDB_TRACEE_UNKNOW;
+    ret = d->tracee_ops->wait_tracee(d);
+    return ret;
 }
 
 static RetCode handle_list_source_cmd(Debugger *d, CommandArgument *arg) {}
@@ -81,9 +105,9 @@ CommandType command_type_of(const char *line, CommandArgument *arg) {
         return CMD_BREAK_DISABLE;
     } else if (strstr(line, "delete")) {
         return CMD_BREAK_DELETE;
-    } else if (strstr(line, "step")) {
-        return CMD_STEP;
     } else if (strstr(line, "stepi")) {
+        return CMD_STEP;
+    } else if (strstr(line, "step")) {
         return CMD_STEPI;
     } else if (strstr(line, "continue")) {
         return CMD_CONTINUE;

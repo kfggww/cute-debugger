@@ -4,6 +4,7 @@
 #include "breakpoint.h"
 #include "dbginfo.h"
 #include <sys/types.h>
+#include <sys/user.h>
 
 #define DEBUGGER_NBREAKPOINTS 16
 
@@ -28,9 +29,9 @@ typedef struct Debugger {
     BreakPoint breakpoints[DEBUGGER_NBREAKPOINTS];
     struct BreakPointOps *breakpoint_ops;
     struct TraceeOps *tracee_ops;
+    int hit_index;
+    struct user_regs_struct user_regs;
 } Debugger;
-
-struct user_regs_struct;
 
 typedef struct BreakPointOps {
     RetCode (*add_breakpoint_by_addr)(Debugger *d, void *addr);
@@ -39,14 +40,12 @@ typedef struct BreakPointOps {
     RetCode (*remove_breakpoint)(Debugger *d, int id);
     RetCode (*enable_breakpoint)(Debugger *d, int id);
     RetCode (*disable_breakpoint)(Debugger *d, int id);
-    RetCode (*on_breakpoint_hit)(Debugger *d, int id,
-                                 struct user_regs_struct *user_regs);
+    RetCode (*on_breakpoint_hit)(Debugger *d);
 } BreakPointOps;
 
 typedef struct TraceeOps {
     RetCode (*start_tracee)(Debugger *d);
     RetCode (*wait_tracee)(Debugger *d);
-    RetCode (*continue_tracee)(Debugger *d);
 } TraceeOps;
 
 /*Debugger APIs*/

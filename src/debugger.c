@@ -8,7 +8,6 @@
 
 #include <elf.h>
 #include <signal.h>
-#include <sys/user.h>
 #include <sys/ptrace.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -82,12 +81,12 @@ static RetCode disable_breakpoint(Debugger *d, int id) {
     return QDB_SUCCESS;
 }
 
-static RetCode on_breakpoint_hit(Debugger *d, int id,
-                                 struct user_regs_struct *user_regs) {
+static RetCode on_breakpoint_hit(Debugger *d) {
     /*Disable the breakpoint*/
-    d->breakpoint_ops->disable_breakpoint(d, id);
+    d->breakpoint_ops->disable_breakpoint(d, d->hit_index);
 
     /*Set pc to pc - 1*/
+    struct user_regs_struct *user_regs = &d->user_regs;
     user_regs->rip -= 1;
     long err = ptrace(PTRACE_SETREGS, d->tracee_pid, NULL, user_regs);
     if (err == -1)
@@ -103,8 +102,9 @@ static RetCode on_breakpoint_hit(Debugger *d, int id,
     waitpid(d->tracee_pid, &status, 0);
 
     if (WIFSTOPPED(status)) { /*Enable breakpoint*/
-        d->breakpoint_ops->enable_breakpoint(d, id);
-        d->breakpoints[id].hits += 1;
+        d->breakpoint_ops->enable_breakpoint(d, d->hit_index);
+        d->breakpoints[d->hit_index].hits += 1;
+        d->hit_index = -1;
         return QDB_SUCCESS;
     } else {
         return QDB_ERROR;
@@ -147,36 +147,23 @@ RetCode wait_tracee(Debugger *d) {
     else if (WIFSTOPPED(status)) {
         if (WSTOPSIG(status) == SIGTRAP) {
             /*Get current pc*/
-            struct user_regs_struct user_regs;
-            if (ptrace(PTRACE_GETREGS, d->tracee_pid, NULL, &user_regs) == -1)
+            if (ptrace(PTRACE_GETREGS, d->tracee_pid, NULL, &d->user_regs) ==
+                -1)
                 return QDB_TRACEE_UNKNOW;
-            void *pc = (void *)user_regs.rip;
+            void *pc = (void *)d->user_regs.rip;
 
             /*Find the breakpoint that the tracee hits*/
-            int hit_index = -1;
             for (int i = 0; i < DEBUGGER_NBREAKPOINTS; i++) {
                 BreakPoint *bpt = &d->breakpoints[i];
                 if (bpt->state == BREAKPOINT_ENABLED && bpt->addr == pc - 1) {
-                    hit_index = i;
+                    d->hit_index = i;
                     break;
                 }
-            }
-
-            if (hit_index != -1) {
-                RetCode ret = d->breakpoint_ops->on_breakpoint_hit(d, hit_index,
-                                                                   &user_regs);
-                return ret == QDB_SUCCESS ? QDB_TRACEE_STOP : QDB_TRACEE_UNKNOW;
             }
         }
         return QDB_TRACEE_STOP;
     } else
         return QDB_TRACEE_UNKNOW;
-}
-
-RetCode continue_tracee(Debugger *d) {
-    long err = -1;
-    err = ptrace(PTRACE_CONT, d->tracee_pid, NULL, NULL);
-    return err != -1 ? QDB_SUCCESS : QDB_ERROR;
 }
 
 static BreakPointOps default_breakpoint_ops = {
@@ -192,7 +179,6 @@ static BreakPointOps default_breakpoint_ops = {
 static TraceeOps default_tracee_ops = {
     .start_tracee = start_tracee,
     .wait_tracee = wait_tracee,
-    .continue_tracee = continue_tracee,
 };
 
 /*Debugger APIs*/
@@ -212,6 +198,8 @@ void init_debugger(Debugger *d, const char *tracee_name) {
 
     for (int i = 0; i < DEBUGGER_NBREAKPOINTS; i++)
         d->breakpoints[i].state = BREAKPOINT_UNUSED;
+
+    d->hit_index = -1;
 }
 
 void run_debugger(Debugger *d) {
@@ -219,20 +207,13 @@ void run_debugger(Debugger *d) {
     RetCode ret = d->tracee_ops->wait_tracee(d);
 
     char *line = NULL;
-    while (ret != QDB_TRACEE_EXIT && ret != QDB_TRACEE_UNKNOW) {
+    while (ret != QDB_TRACEE_EXIT && ret != QDB_TRACEE_UNKNOW &&
+           ret != QDB_DEBUGGER_EXIT) {
         line = linenoise("(qdb) ");
         CommandArgument arg;
         CommandType cmd_type = command_type_of(line, &arg);
-        RetCode cmd_ret = command_handlers[cmd_type](d, &arg);
+        ret = command_handlers[cmd_type](d, &arg);
         linenoiseFree(line);
-
-        if (cmd_ret == QDB_DEBUGGER_MORE_INPUT)
-            continue;
-        else if (cmd_ret == QDB_DEBUGGER_EXIT)
-            break;
-
-        d->tracee_ops->continue_tracee(d);
-        ret = d->tracee_ops->wait_tracee(d);
     }
 }
 
