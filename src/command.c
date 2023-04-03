@@ -46,15 +46,17 @@ static RetCode handle_stepi_cmd(Debugger *d, CommandArgument *arg) {
 
 static RetCode handle_continue_cmd(Debugger *d, CommandArgument *arg) {
     RetCode ret = QDB_ERROR;
-    if (d->hit_index >= 0 && d->hit_index < DEBUGGER_NBREAKPOINTS)
+    if (d->hit_index >= 0 && d->hit_index < DEBUGGER_NBREAKPOINTS) {
         ret = d->breakpoint_ops->on_breakpoint_hit(d);
-    if (ret == QDB_ERROR)
-        return QDB_TRACEE_UNKNOW;
+        if (ret == QDB_ERROR)
+            return QDB_TRACEE_UNKNOW;
+    }
 
     long err = -1;
     err = ptrace(PTRACE_CONT, d->tracee_pid, NULL, NULL);
-    if (err == -1)
+    if (err == -1) {
         return QDB_TRACEE_UNKNOW;
+    }
     ret = d->tracee_ops->wait_tracee(d);
     return ret;
 }
@@ -106,9 +108,9 @@ CommandType command_type_of(const char *line, CommandArgument *arg) {
     } else if (strstr(line, "delete")) {
         return CMD_BREAK_DELETE;
     } else if (strstr(line, "stepi")) {
-        return CMD_STEP;
-    } else if (strstr(line, "step")) {
         return CMD_STEPI;
+    } else if (strstr(line, "step")) {
+        return CMD_STEP;
     } else if (strstr(line, "continue")) {
         return CMD_CONTINUE;
     } else if (strstr(line, "list")) {

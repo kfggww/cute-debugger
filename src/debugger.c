@@ -142,9 +142,9 @@ RetCode wait_tracee(Debugger *d) {
         return QDB_ERROR;
     }
 
-    if (WIFEXITED(status))
+    if (WIFEXITED(status)) {
         return QDB_TRACEE_EXIT;
-    else if (WIFSTOPPED(status)) {
+    } else if (WIFSTOPPED(status)) {
         if (WSTOPSIG(status) == SIGTRAP) {
             /*Get current pc*/
             if (ptrace(PTRACE_GETREGS, d->tracee_pid, NULL, &d->user_regs) ==
@@ -157,13 +157,15 @@ RetCode wait_tracee(Debugger *d) {
                 BreakPoint *bpt = &d->breakpoints[i];
                 if (bpt->state == BREAKPOINT_ENABLED && bpt->addr == pc - 1) {
                     d->hit_index = i;
+                    printf("breakpoint [%d] hits\n", d->hit_index);
                     break;
                 }
             }
         }
         return QDB_TRACEE_STOP;
-    } else
+    } else {
         return QDB_TRACEE_UNKNOW;
+    }
 }
 
 static BreakPointOps default_breakpoint_ops = {
