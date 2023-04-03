@@ -18,7 +18,13 @@ static RetCode handle_break_cmd(Debugger *d, CommandArgument *arg) {
     }
 }
 
-static RetCode handle_break_info_cmd(Debugger *d, CommandArgument *arg) {}
+static RetCode handle_break_info_cmd(Debugger *d, CommandArgument *arg) {
+    printf("BREAKPOINT INFO:\n");
+    for (int i = 0; i < DEBUGGER_NBREAKPOINTS; i++) {
+        BreakPoint *bpt = &d->breakpoints[i];
+        show_breakpoint_info(bpt, i);
+    }
+}
 
 static RetCode handle_break_enable_cmd(Debugger *d, CommandArgument *arg) {}
 

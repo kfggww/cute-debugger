@@ -16,4 +16,6 @@ typedef struct BreakPoint {
     int hits;
 } BreakPoint;
 
+void show_breakpoint_info(BreakPoint *bpt, int id);
+
 #endif

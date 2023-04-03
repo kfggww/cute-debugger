@@ -103,7 +103,6 @@ static RetCode on_breakpoint_hit(Debugger *d) {
 
     if (WIFSTOPPED(status)) { /*Enable breakpoint*/
         d->breakpoint_ops->enable_breakpoint(d, d->hit_index);
-        d->breakpoints[d->hit_index].hits += 1;
         d->hit_index = -1;
         return QDB_SUCCESS;
     } else {
@@ -157,7 +156,8 @@ RetCode wait_tracee(Debugger *d) {
                 BreakPoint *bpt = &d->breakpoints[i];
                 if (bpt->state == BREAKPOINT_ENABLED && bpt->addr == pc - 1) {
                     d->hit_index = i;
-                    printf("breakpoint [%d] hits\n", d->hit_index);
+                    bpt->hits++;
+                    printf("breakpoint %d hits\n", d->hit_index);
                     break;
                 }
             }
