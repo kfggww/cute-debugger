@@ -8,6 +8,7 @@
 typedef struct DebugInfoManager {
     Dwarf_Debug dbg;
     uint16_t elf_type;
+    int elf_fd;
 } DebugInfoManager;
 
 DebugInfoManager *create_info_manager(const char *tracee_name);

@@ -31,8 +31,12 @@
 *.out
 *.app
 qdb
-test
+test_pie
+test_nonpie
 .dep
 
 # Editors
 .vscode
+
+# Test
+tests

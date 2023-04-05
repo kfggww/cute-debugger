@@ -50,7 +50,11 @@ static RetCode add_breakpoint1(Debugger *d, void *addr) {
 
 static RetCode add_breakpoint2(Debugger *d, int lineno) { return 0; }
 
-static RetCode add_breakpoint3(Debugger *d, const char *fn_name) { return 0; }
+static RetCode add_breakpoint3(Debugger *d, const char *fn_name) {
+    DebugInfoManager *im = d->info_manager;
+    void *addr = addr_of_function(im, fn_name);
+    return add_breakpoint1(d, addr);
+}
 
 static RetCode remove_breakpoint(Debugger *d, int id) {
     BreakPoint *bpt = &d->breakpoints[id];

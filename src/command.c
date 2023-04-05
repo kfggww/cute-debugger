@@ -15,6 +15,10 @@ static RetCode handle_break_cmd(Debugger *d, CommandArgument *arg) {
         ret = d->breakpoint_ops->add_breakpoint_by_addr(
             d, arg->data.set_brkpt.addr);
         return ret;
+    } else if (arg->data.set_brkpt.set_method == SET_BREAKPOINT_FNNAME) {
+        ret = d->breakpoint_ops->add_breakpoint_by_fn(
+            d, arg->data.set_brkpt.fnname);
+        return ret;
     }
 }
 
