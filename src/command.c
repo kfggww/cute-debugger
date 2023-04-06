@@ -19,6 +19,10 @@ static RetCode handle_break_cmd(Debugger *d, CommandArgument *arg) {
         ret = d->breakpoint_ops->add_breakpoint_by_fn(
             d, arg->data.set_brkpt.fnname);
         return ret;
+    } else if (arg->data.set_brkpt.set_method == SET_BREAKPOINT_LINENO) {
+        ret = d->breakpoint_ops->add_breakpoint_by_lineno(
+            d, arg->data.set_brkpt.lineno);
+        return ret;
     }
 }
 
@@ -87,7 +91,7 @@ CommandType command_type_of(const char *line, CommandArgument *arg) {
         unsigned long lineno;
         char func_name[32];
 
-        int n = sscanf(line, "%s%lx", cmd, &addr);
+        int n = sscanf(line, "%s *%lx", cmd, &addr);
         if (n == 2) {
             arg->data.set_brkpt.addr = (void *)addr;
             arg->data.set_brkpt.set_method = SET_BREAKPOINT_ADDR;

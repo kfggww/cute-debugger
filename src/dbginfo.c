@@ -45,7 +45,36 @@ void destroy_info_manager(DebugInfoManager *im) {
     free(im);
 }
 
-void *addr_of_lineno(DebugInfoManager *im, int lineno) { return NULL; }
+void *addr_of_lineno(DebugInfoManager *im, int lineno) {
+    void *result = NULL;
+    Dwarf_Debug dbg = im->dbg;
+    Dwarf_Unsigned cu_next = 0;
+    Dwarf_Die cu_die = NULL;
+
+    /*Reset iteration*/
+    int ret = dwarf_next_cu_header(dbg, NULL, NULL, NULL, NULL, &cu_next, NULL);
+    while (ret == DW_DLV_OK) {
+        dwarf_siblingof(dbg, NULL, &cu_die, NULL);
+        Dwarf_Line *lines = NULL;
+        Dwarf_Signed nlines = 0;
+        dwarf_srclines(cu_die, &lines, &nlines, NULL);
+
+        for (int i = 0; i < nlines; i++) {
+            Dwarf_Unsigned lineno_cur = 0;
+            dwarf_lineno(lines[i], &lineno_cur, NULL);
+            if (lineno_cur == lineno) {
+                Dwarf_Addr addr = 0;
+                dwarf_lineaddr(lines[i], &addr, NULL);
+                result = (void *)addr;
+                break;
+            }
+        }
+
+        ret = dwarf_next_cu_header(dbg, NULL, NULL, NULL, NULL, &cu_next, NULL);
+    }
+
+    return result;
+}
 
 void *addr_of_function(DebugInfoManager *im, const char *fn) {
     void *result = NULL;
