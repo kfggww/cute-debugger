@@ -66,13 +66,17 @@ void *addr_of_lineno(DebugInfoManager *im, int lineno) {
                 Dwarf_Addr addr = 0;
                 dwarf_lineaddr(lines[i], &addr, NULL);
                 result = (void *)addr;
-                break;
+                while (dwarf_next_cu_header(dbg, NULL, NULL, NULL, NULL,
+                                            &cu_next, NULL) == DW_DLV_OK) {
+                }
+                goto found;
             }
         }
 
         ret = dwarf_next_cu_header(dbg, NULL, NULL, NULL, NULL, &cu_next, NULL);
     }
 
+found:
     return result;
 }
 
@@ -89,9 +93,8 @@ void *addr_of_function(DebugInfoManager *im, const char *fn) {
 
     Dwarf_Die cu_die = NULL;
     /*For each compile unit*/
-    while (dwarf_next_cu_header(dbg, &cu_length, &cu_version, &cu_abbrev_offset,
-                                &cu_pointer_size, &cu_next,
-                                &err) == DW_DLV_OK) {
+    while (dwarf_next_cu_header(dbg, NULL, NULL, NULL, NULL, &cu_next, &err) ==
+           DW_DLV_OK) {
         if (dwarf_siblingof(dbg, cu_die, &cu_die, &err) != DW_DLV_OK) {
             break;
         }
@@ -110,6 +113,9 @@ void *addr_of_function(DebugInfoManager *im, const char *fn) {
                 Dwarf_Addr addr = 0;
                 dwarf_lowpc(cu_child, &addr, &err);
                 result = (void *)addr;
+                while (dwarf_next_cu_header(dbg, NULL, NULL, NULL, NULL,
+                                            &cu_next, &err) == DW_DLV_OK) {
+                }
                 goto found;
             }
 
