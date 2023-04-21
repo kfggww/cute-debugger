@@ -2,8 +2,8 @@
 #define DBGINFO_H
 
 #include <stdint.h>
-#include <libdwarf/dwarf.h>
-#include <libdwarf/libdwarf.h>
+#include <dwarf.h>
+#include <libdwarf.h>
 
 typedef struct DebugInfoManager {
     Dwarf_Debug dbg;

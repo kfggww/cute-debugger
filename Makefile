@@ -16,6 +16,8 @@ DEP_PROJECTS := deps/linenoise
 LINENOISE_OBJS := deps/linenoise/linenoise.o
 QDB_OBJS += $(LINENOISE_OBJS)
 
+$(QDB_OBJS): CFLAGS += $(shell pkg-config --cflags-only-I libdwarf)
+
 define build_deps
 	for dep in $(1); \
 	do \

@@ -28,7 +28,8 @@ DebugInfoManager *create_info_manager(const char *tracee_name) {
     im->elf_fd = fd;
 
     Dwarf_Error err;
-    if (dwarf_init(fd, DW_DLC_READ, NULL, NULL, &im->dbg, &err) != DW_DLV_OK) {
+    if (dwarf_init_b(fd, DW_GROUPNUMBER_ANY, NULL, NULL, &im->dbg, &err) !=
+        DW_DLV_OK) {
         free(im);
         im = NULL;
     }
@@ -39,8 +40,7 @@ end:
 
 /*Destroy debug info manager*/
 void destroy_info_manager(DebugInfoManager *im) {
-    Dwarf_Error err;
-    dwarf_finish(im->dbg, &err);
+    dwarf_finish(im->dbg);
     close(im->elf_fd);
     free(im);
 }
@@ -52,12 +52,15 @@ void *addr_of_lineno(DebugInfoManager *im, int lineno) {
     Dwarf_Die cu_die = NULL;
 
     /*Reset iteration*/
-    int ret = dwarf_next_cu_header(dbg, NULL, NULL, NULL, NULL, &cu_next, NULL);
+    int ret = dwarf_next_cu_header_d(dbg, 1, NULL, NULL, NULL, NULL, NULL, NULL,
+                                     NULL, NULL, &cu_next, NULL, NULL);
     while (ret == DW_DLV_OK) {
-        dwarf_siblingof(dbg, NULL, &cu_die, NULL);
+        dwarf_siblingof_b(dbg, NULL, 1, &cu_die, NULL);
+        Dwarf_Line_Context line_ctx;
         Dwarf_Line *lines = NULL;
         Dwarf_Signed nlines = 0;
-        dwarf_srclines(cu_die, &lines, &nlines, NULL);
+        dwarf_srclines_b(cu_die, NULL, NULL, &line_ctx, NULL);
+        dwarf_srclines_from_linecontext(line_ctx, &lines, &nlines, NULL);
 
         for (int i = 0; i < nlines; i++) {
             Dwarf_Unsigned lineno_cur = 0;
@@ -66,14 +69,16 @@ void *addr_of_lineno(DebugInfoManager *im, int lineno) {
                 Dwarf_Addr addr = 0;
                 dwarf_lineaddr(lines[i], &addr, NULL);
                 result = (void *)addr;
-                while (dwarf_next_cu_header(dbg, NULL, NULL, NULL, NULL,
-                                            &cu_next, NULL) == DW_DLV_OK) {
+                while (dwarf_next_cu_header_d(dbg, 1, NULL, NULL, NULL, NULL,
+                                              NULL, NULL, NULL, NULL, &cu_next,
+                                              NULL, NULL) == DW_DLV_OK) {
                 }
                 goto found;
             }
         }
 
-        ret = dwarf_next_cu_header(dbg, NULL, NULL, NULL, NULL, &cu_next, NULL);
+        ret = dwarf_next_cu_header_d(dbg, 1, NULL, NULL, NULL, NULL, NULL, NULL,
+                                     NULL, NULL, &cu_next, NULL, NULL);
     }
 
 found:
@@ -93,9 +98,10 @@ void *addr_of_function(DebugInfoManager *im, const char *fn) {
 
     Dwarf_Die cu_die = NULL;
     /*For each compile unit*/
-    while (dwarf_next_cu_header(dbg, NULL, NULL, NULL, NULL, &cu_next, &err) ==
-           DW_DLV_OK) {
-        if (dwarf_siblingof(dbg, cu_die, &cu_die, &err) != DW_DLV_OK) {
+    while (dwarf_next_cu_header_d(dbg, 1, NULL, NULL, NULL, NULL, NULL, NULL,
+                                  NULL, NULL, &cu_next, NULL,
+                                  &err) == DW_DLV_OK) {
+        if (dwarf_siblingof_b(dbg, cu_die, 1, &cu_die, &err) != DW_DLV_OK) {
             break;
         }
 
@@ -113,13 +119,15 @@ void *addr_of_function(DebugInfoManager *im, const char *fn) {
                 Dwarf_Addr addr = 0;
                 dwarf_lowpc(cu_child, &addr, &err);
                 result = (void *)addr;
-                while (dwarf_next_cu_header(dbg, NULL, NULL, NULL, NULL,
-                                            &cu_next, &err) == DW_DLV_OK) {
+                while (dwarf_next_cu_header_d(dbg, 1, NULL, NULL, NULL, NULL,
+                                              NULL, NULL, NULL, NULL, &cu_next,
+                                              NULL, &err) == DW_DLV_OK) {
                 }
                 goto found;
             }
 
-            if (dwarf_siblingof(dbg, cu_child, &cu_child, &err) != DW_DLV_OK) {
+            if (dwarf_siblingof_b(dbg, cu_child, 1, &cu_child, &err) !=
+                DW_DLV_OK) {
                 cu_child = NULL;
             }
         }
