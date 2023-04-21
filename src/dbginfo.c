@@ -59,7 +59,9 @@ void *addr_of_lineno(DebugInfoManager *im, int lineno) {
         Dwarf_Line_Context line_ctx;
         Dwarf_Line *lines = NULL;
         Dwarf_Signed nlines = 0;
-        dwarf_srclines_b(cu_die, NULL, NULL, &line_ctx, NULL);
+        Dwarf_Unsigned version = 0;
+        Dwarf_Small table_count = 0;
+        dwarf_srclines_b(cu_die, &version, &table_count, &line_ctx, NULL);
         dwarf_srclines_from_linecontext(line_ctx, &lines, &nlines, NULL);
 
         for (int i = 0; i < nlines; i++) {
