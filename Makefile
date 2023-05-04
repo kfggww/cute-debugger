@@ -11,7 +11,7 @@ ifeq ($(BUILD_TYPE), Debug)
 	CFLAGS += -g
 endif
 
-qdb_srcs := command.c dbginfodb.c debugger.c list.c main.c tracee.c
+qdb_srcs := command.c dbginfodb.c debugger.c list.c main.c qstring.c tracee.c
 qdb_srcs := $(qdb_srcs:%=src/%)
 qdb_objs := $(qdb_srcs:%.c=$(BUILD_DIR)/%.o)
 qdb_deps := $(qdb_objs:%.o=%.d)
@@ -33,7 +33,7 @@ run: qdb
 	$(BUILD_DIR)/$<
 
 clean:
-	-rm $(qdb_objs) $(qdb_deps) $(BUILD_DIR)/qdb
+	rm -rf $(qdb_objs) $(qdb_deps) $(BUILD_DIR)/qdb
 
 .PHONY: all qdb debug run clean
 

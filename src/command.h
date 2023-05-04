@@ -25,19 +25,20 @@ enum {
 typedef struct Command {
     int type;
     union {
-
+        char **start_args;
+        char **run_args;
     } args;
 } Command;
 
-typedef int (*CommandHandlerFunc)(Command *cmd);
+typedef int CommandHandlerFunc(Command *cmd, void *privdata);
 
 typedef struct CommandHandler {
     int type;
-    CommandHandlerFunc func;
+    CommandHandlerFunc *func;
 } CommandHandler;
 
-void register_cmd_handler(int type, CommandHandlerFunc handler, List *li);
+void register_cmd_handler(int type, CommandHandlerFunc *handler, List *li);
 
-Command *parse_command(char *buf);
+Command *parse_command(char *line);
 
 #endif

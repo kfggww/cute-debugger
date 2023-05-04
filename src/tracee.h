@@ -19,6 +19,7 @@ typedef struct Tracee {
     char *elfpath;
     char **args;
     int state;
+    int optset;
 
     List *cmd_handlers;
 } Tracee;
@@ -31,6 +32,6 @@ void tracee_init(Tracee *t, char *elfpath, char **args);
 int tracee_start(Tracee *t);
 int tracee_wait(Tracee *t);
 
-void tracee_handle_command(Tracee *t, Command *cmd);
+void tracee_accept_command(Tracee *t, Command *cmd);
 
 #endif
