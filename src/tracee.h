@@ -1,37 +1,33 @@
 #ifndef TRACEE_H
 #define TRACEE_H
 
-#include "list.h"
-#include "command.h"
-
-enum {
-    TRACEE_UNUSED,
-    TRACEE_READY,
-    TRACEE_RUNNING,
-    TRACEE_TRAP,
-    TRACEE_STOP,
-    TRACEE_EXIT,
-    TRACEE_UNKNOWN,
+enum TraceeState {
+    kTraceeUnused,
+    kTraceeReady,
+    kTraceeRunning,
+    kTraceeTrap,
+    kTraceeStop,
+    kTraceeExit,
+    kTraceeUnknown,
 };
+
+struct TraceeOps;
 
 typedef struct Tracee {
     int pid;
-    char *elfpath;
-    char **args;
+    char *program;
+    char **argv;
     int state;
-    int optset;
-
-    List *cmd_handlers;
+    struct TraceeOps *ops;
 } Tracee;
 
-/* Tracee APIs */
+typedef struct TraceeOps {
+    void (*start_tracee)(Tracee *t);
+    void (*wait_tracee)(Tracee *t);
+} TraceeOps;
+
 Tracee *tracee_new();
+void tracee_init(Tracee *t, int argc, char **argv);
 void tracee_destroy(Tracee *t);
-
-void tracee_init(Tracee *t, char *elfpath, char **args);
-int tracee_start(Tracee *t);
-int tracee_wait(Tracee *t);
-
-void tracee_accept_command(Tracee *t, Command *cmd);
 
 #endif

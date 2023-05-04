@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include <signal.h>
 #include <sys/ptrace.h>
@@ -7,102 +8,56 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include "types.h"
 #include "tracee.h"
 
+static void start_tracee(Tracee *t) {}
+
+static void wait_tracee(Tracee *t) {}
+
+static TraceeOps default_tracee_ops = {
+    .start_tracee = start_tracee,
+    .wait_tracee = wait_tracee,
+};
+
 Tracee *tracee_new() {
-    Tracee *t = malloc(sizeof(*t));
+    Tracee *t = calloc(1, sizeof(*t));
     return t;
 }
 
-void tracee_destroy(Tracee *t) {
-    if (t->elfpath) {
-        free(t->elfpath);
-    }
-    for (int i = 0; t->args[i] != NULL; i++) {
-        free(t->args[i]);
-    }
-}
-
-static int command_continue(Command *cmd, void *privdata) {
-    if (cmd->type != CMD_CONTINUE)
-        return QDB_ERROR;
-
-    Tracee *t = (Tracee *)privdata;
-    if (t->state != TRACEE_TRAP && t->state != TRACEE_STOP)
-        return QDB_ERROR;
-
-    ptrace(PTRACE_CONT, t->pid, NULL, NULL);
-    return tracee_wait(t);
-}
-
-void tracee_init(Tracee *t, char *elfpath, char **args) {
+void tracee_init(Tracee *t, int argc, char **argv) {
     t->pid = -1;
-    t->elfpath = elfpath;
-    t->args = args;
-    t->state = TRACEE_READY;
-    t->optset = 0;
 
-    t->cmd_handlers = list_new();
-    register_cmd_handler(CMD_CONTINUE, command_continue, t->cmd_handlers);
-}
+    int n = strlen(argv[0]) + 1;
+    t->program = malloc(n);
+    strncpy(t->program, argv[0], n);
 
-int tracee_start(Tracee *t) {
-    int err = QDB_SUCCESS;
-
-    pid_t pid = fork();
-    if (pid == 0) {
-        ptrace(PTRACE_TRACEME, 0, NULL, NULL);
-        pid = getpid();
-        kill(pid, SIGTRAP);
-        execv(t->elfpath, t->args);
-        exit(EXIT_FAILURE);
-    } else if (pid > 0) {
-        t->pid = pid;
-        t->state = TRACEE_RUNNING;
-    } else {
-        err = QDB_ERROR;
+    t->argv = malloc(sizeof(char *) * (argc + 1));
+    for (int i = 0; i < argc; i++) {
+        int n = strlen(argv[i]) + 1;
+        t->argv[i] = malloc(n);
+        strncpy(t->argv[i], argv[i], n);
     }
+    t->argv[argc] = NULL;
 
-    return err;
+    t->state = kTraceeReady;
+    t->ops = &default_tracee_ops;
 }
 
-int tracee_wait(Tracee *t) {
-    int status = 0;
-    pid_t wpid = waitpid(t->pid, &status, 0);
+void tracee_destroy(Tracee *t) {
+    if (t == NULL)
+        return;
 
-    if (wpid != t->pid) {
-        return QDB_ERROR;
-    } else if (WIFEXITED(status)) {
-        t->state = TRACEE_EXIT;
-        return QDB_SUCCESS;
-    } else if (WIFSTOPPED(status)) {
-        int sig = WSTOPSIG(status);
-        if (sig == SIGTRAP) {
-            t->state = TRACEE_TRAP;
-        } else {
-            t->state = TRACEE_STOP;
-        }
-        if (t->optset == 0) {
-            long data = PTRACE_O_TRACEEXEC | PTRACE_O_EXITKILL;
-            ptrace(PTRACE_SETOPTIONS, t->pid, NULL, (void *)data);
-            t->optset = 1;
-            t->state = TRACEE_RUNNING;
-            ptrace(PTRACE_CONT, t->pid, NULL, NULL);
-            return tracee_wait(t);
-        }
-        return QDB_SUCCESS;
-    } else {
-        return QDB_ERROR;
-    }
-}
+    if (t->program)
+        free(t->program);
 
-void tracee_accept_command(Tracee *t, Command *cmd) {
-    list_foreach(t->cmd_handlers, entry) {
-        CommandHandler *handler = (CommandHandler *)entry->data;
-        if (handler && handler->func && cmd->type == handler->type) {
-            handler->func(cmd, t);
-            return;
+    if (t->argv) {
+        int i = 0;
+        char *parg = t->argv[i];
+        while (parg) {
+            free(parg);
+            parg = t->argv[i];
+            i++;
         }
+        free(t->argv);
     }
 }

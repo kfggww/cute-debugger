@@ -11,7 +11,7 @@ ifeq ($(BUILD_TYPE), Debug)
 	CFLAGS += -g
 endif
 
-qdb_srcs := command.c dbginfodb.c debugger.c list.c main.c qstring.c tracee.c
+qdb_srcs := breakpoint.c command.c dbginfodb.c debugger.c main.c tracee.c
 qdb_srcs := $(qdb_srcs:%=src/%)
 qdb_objs := $(qdb_srcs:%.c=$(BUILD_DIR)/%.o)
 qdb_deps := $(qdb_objs:%.o=%.d)
