@@ -84,6 +84,7 @@ Command *parse_command(const char *line) {
             if (n >= NPARAM_MAX)
                 break;
         }
+        i = j;
     }
 
     cmd->nparam = n;

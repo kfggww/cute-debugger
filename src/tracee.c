@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <regex.h>
 #include <signal.h>
 #include <sys/ptrace.h>
 #include <sys/types.h>
@@ -78,10 +79,54 @@ static void wait_tracee(Tracee *t) {
         t->state = kTraceeUnknown;
 }
 
+void create_breakpoint(Tracee *t, const char *loc, int oneshot) {
+    if (loc ==
+        NULL /* || (t->state != kTraceeTrap && t->state != kTraceeStop) */)
+        return;
+
+    regex_t lineno_pattern;
+    regex_t addr_pattern;
+
+    regcomp(&lineno_pattern, "^[0-9]+$", REG_EXTENDED);
+    regcomp(&addr_pattern, "^\\*0x[0-9a-fA-F]{4,16}$", REG_EXTENDED);
+
+    BreakPoint *bpt = NULL;
+    for (int i = 0; i < 16; i++) {
+        if (t->breakpoints[i].addr == NULL) {
+            bpt = &t->breakpoints[i];
+            break;
+        }
+    }
+
+    if (regexec(&lineno_pattern, loc, 0, NULL, 0) == 0)
+        bpt->lineno = atoi(loc);
+    // TODO: get addr by lineno
+    else if (regexec(&addr_pattern, loc, 0, NULL, 0) == 0)
+        bpt->addr = (void *)strtol(loc + 1, NULL, 16);
+    else {
+        if (bpt->func_name)
+            free(bpt->func_name);
+        int n = strlen(loc);
+        bpt->func_name = malloc(n + 1);
+        strncpy(bpt->func_name, loc, n);
+        bpt->func_name[n] = '\0';
+        // TODO: get addr by func_name
+    }
+
+    bpt->original_data = ptrace(PTRACE_PEEKDATA, t->pid, bpt->addr, NULL);
+    long modified = (bpt->original_data & (~0xff)) | 0xcc;
+    ptrace(PTRACE_POKEDATA, t->pid, bpt->addr, (void *)modified);
+
+    bpt->enabled = 1;
+    bpt->oneshot = oneshot;
+    bpt->hitcount = 0;
+}
+
 static TraceeOps default_tracee_ops = {
     .start_tracee = start_tracee,
     .wait_tracee = wait_tracee,
     .continue_tracee = continue_tracee,
+    .create_breakpoint = create_breakpoint,
 };
 
 Tracee *tracee_new() {

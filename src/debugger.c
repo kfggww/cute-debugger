@@ -42,6 +42,23 @@ static void command_continue_handler(Command *cmd) {
     t->ops->continue_tracee(t);
 }
 
+static void command_break_handler(Command *cmd) {
+    Tracee *t = qdb->current;
+    if (t == NULL)
+        return;
+
+    if (cmd->nparam != 1) {
+        printf("error usage of break, nparam=%d\n", cmd->nparam);
+        for (int i = 0; i < cmd->nparam; i++) {
+            printf("%s\n", cmd->params[i]);
+        }
+
+        return;
+    }
+
+    t->ops->create_breakpoint(t, cmd->params[0], 0);
+}
+
 static struct CommandHandler {
     int type;
     void (*handler_fn)(Command *cmd);
@@ -57,6 +74,10 @@ static struct CommandHandler {
     {
         .type = kCommandContinue,
         .handler_fn = command_continue_handler,
+    },
+    {
+        .type = kCommandBreak,
+        .handler_fn = command_break_handler,
     },
     {.type = kCommandUnknown, .handler_fn = NULL},
 };
