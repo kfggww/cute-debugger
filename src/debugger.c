@@ -26,6 +26,22 @@ static void command_quit_handler(Command *cmd) {
         qdb->stoped = 1;
 }
 
+static void command_start_handler(Command *cmd) {
+    Tracee *t = qdb->current;
+    if (t == NULL || (t->state != kTraceeReady && t->state != kTraceeExit))
+        return;
+
+    t->ops->start_tracee(t, cmd->nparam, cmd->params);
+}
+
+static void command_continue_handler(Command *cmd) {
+    Tracee *t = qdb->current;
+    if (t == NULL)
+        return;
+
+    t->ops->continue_tracee(t);
+}
+
 static struct CommandHandler {
     int type;
     void (*handler_fn)(Command *cmd);
@@ -33,6 +49,14 @@ static struct CommandHandler {
     {
         .type = kCommandQuit,
         .handler_fn = command_quit_handler,
+    },
+    {
+        .type = kCommandStart,
+        .handler_fn = command_start_handler,
+    },
+    {
+        .type = kCommandContinue,
+        .handler_fn = command_continue_handler,
     },
     {.type = kCommandUnknown, .handler_fn = NULL},
 };
@@ -49,6 +73,7 @@ static void dispatch_command(Command *cmd) {
                 break;
             }
         }
+        handler++;
     }
 }
 

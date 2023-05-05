@@ -10,13 +10,78 @@
 
 #include "tracee.h"
 
-static void start_tracee(Tracee *t) {}
+static void start_tracee(Tracee *t, int argc, char **argv) {
+    if (t == NULL || t->state == kTraceeRunning || t->state == kTraceeTrap ||
+        t->state == kTraceeStop || t->state == kTraceeUnknown)
+        return;
 
-static void wait_tracee(Tracee *t) {}
+    /* Reset the tracee arguments */
+    if (argc > 0) {
+    }
+
+    pid_t pid = fork();
+    if (pid == 0) {
+        ptrace(PTRACE_TRACEME, 0, NULL, NULL);
+        kill(getpid(), SIGTRAP);
+        execv(t->program, t->argv);
+        exit(EXIT_FAILURE);
+    }
+
+    if (pid < 0)
+        return;
+
+    /**
+     * Setup ptrace options, so that:
+     *  1. tracee will stop at next exec syscall;
+     *  2. tracee will be killed if debugger exit;
+     */
+    int status = 0;
+    pid_t wpid = waitpid(pid, &status, 0);
+    if (wpid != pid || !WIFSTOPPED(status) || WSTOPSIG(status) != SIGTRAP) {
+        kill(SIGKILL, pid);
+        return;
+    }
+
+    t->pid = pid;
+    ptrace(PTRACE_SETOPTIONS, pid, NULL,
+           PTRACE_O_EXITKILL | PTRACE_O_TRACEEXEC);
+
+    /* Continue running tracee, it will be stoped at exec syscall */
+    t->state = kTraceeRunning;
+    ptrace(PTRACE_CONT, pid, NULL, NULL);
+}
+
+static void continue_tracee(Tracee *t) {
+    if (t == NULL || t->state == kTraceeExit || t->state == kTraceeRunning ||
+        t->state == kTraceeUnknown)
+        return;
+
+    t->state = kTraceeRunning;
+    ptrace(PTRACE_CONT, t->pid, NULL, NULL);
+}
+
+static void wait_tracee(Tracee *t) {
+    if (t == NULL || t->state != kTraceeRunning)
+        return;
+
+    int status = 0;
+    pid_t wpid = waitpid(t->pid, &status, 0);
+
+    if (WIFEXITED(status))
+        t->state = kTraceeExit;
+    else if (WIFSTOPPED(status)) {
+        if (WSTOPSIG(status) == SIGTRAP)
+            t->state = kTraceeTrap;
+        else
+            t->state = kTraceeStop;
+    } else
+        t->state = kTraceeUnknown;
+}
 
 static TraceeOps default_tracee_ops = {
     .start_tracee = start_tracee,
     .wait_tracee = wait_tracee,
+    .continue_tracee = continue_tracee,
 };
 
 Tracee *tracee_new() {
