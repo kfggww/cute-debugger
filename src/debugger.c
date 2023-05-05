@@ -21,6 +21,37 @@ typedef struct Debugger {
 
 static Debugger *qdb = NULL;
 
+static void command_quit_handler(Command *cmd) {
+    if (cmd != NULL && cmd->type == kCommandQuit)
+        qdb->stoped = 1;
+}
+
+static struct CommandHandler {
+    int type;
+    void (*handler_fn)(Command *cmd);
+} command_handlers[] = {
+    {
+        .type = kCommandQuit,
+        .handler_fn = command_quit_handler,
+    },
+    {.type = kCommandUnknown, .handler_fn = NULL},
+};
+
+static void dispatch_command(Command *cmd) {
+    if (cmd == NULL)
+        return;
+
+    struct CommandHandler *handler = command_handlers;
+    while (handler->type <= kCommandUnknown) {
+        if (handler->type == cmd->type) {
+            if (handler->handler_fn != NULL) {
+                handler->handler_fn(cmd);
+                break;
+            }
+        }
+    }
+}
+
 static void update_tracee(Tracee *t) {
     if (t == NULL)
         return;
@@ -39,6 +70,8 @@ static void accept_command() {
             if (n <= 0)
                 return;
             line[n] = '\0';
+            Command *cmd = parse_command(line);
+            dispatch_command(cmd);
         }
     }
 }
@@ -71,6 +104,9 @@ void qdb_init(int argc, char **argv) {
     /* Initialize current tracee */
     qdb->current = tracee_new();
     tracee_init(qdb->current, argc - 1, argv + 1);
+
+    /* Initialize command parser */
+    command_parser_init();
 
     qdb->initialized = 1;
 }

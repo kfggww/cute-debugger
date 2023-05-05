@@ -55,8 +55,8 @@ void tracee_destroy(Tracee *t) {
         char *parg = t->argv[i];
         while (parg) {
             free(parg);
-            parg = t->argv[i];
             i++;
+            parg = t->argv[i];
         }
         free(t->argv);
     }
