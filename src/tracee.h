@@ -22,6 +22,7 @@ typedef struct Tracee {
     int state;
     struct TraceeOps *ops;
     BreakPoint breakpoints[16];
+    int hit_index;
 } Tracee;
 
 typedef struct TraceeOps {

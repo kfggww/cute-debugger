@@ -7,9 +7,13 @@
 #include <sys/ptrace.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/user.h>
 #include <unistd.h>
 
 #include "tracee.h"
+
+static char *tracee_states[] = {"Unused", "Ready", "Running", "Trap",
+                                "Stop",   "Exit",  "Unknown"};
 
 #define ASSERT_TRACEE_STATE(t, cond)                                           \
     if (!(cond)) {                                                             \
@@ -60,26 +64,74 @@ static void start_tracee(Tracee *t, int argc, char **argv) {
 static void continue_tracee(Tracee *t) {
     ASSERT_TRACEE_STATE(t, t->state == kTraceeTrap || t->state == kTraceeStop);
 
+    // TODO: also needed by step, next, stepi, ...etc
+    if (t->hit_index != -1) {
+        ptrace(PTRACE_SINGLESTEP, t->pid, NULL, NULL);
+        /* wait is necessary after a single step ptrace */
+        waitpid(t->pid, NULL, 0);
+        BreakPoint *bpt_hit = &t->breakpoints[t->hit_index];
+        enable_breakpoint(t->pid, bpt_hit);
+    }
+
     t->state = kTraceeRunning;
     ptrace(PTRACE_CONT, t->pid, NULL, NULL);
 }
 
-static void wait_tracee(Tracee *t) {
-    if (t->state != kTraceeRunning)
+static void update_breakpoint_hit(Tracee *t) {
+    if (t->state != kTraceeTrap) {
         return;
+    }
+
+    struct user_regs_struct regs;
+    ptrace(PTRACE_GETREGS, t->pid, NULL, (void *)&regs);
+
+    for (int i = 0; i < 16; i++) {
+        BreakPoint *bpt = &t->breakpoints[i];
+        if (bpt->enabled && bpt->addr + 1 == (void *)regs.rip) {
+            printf("breakpoint [%d] hit\n", i);
+
+            disable_breakpoint(t->pid, bpt);
+            regs.rip -= 1;
+            ptrace(PTRACE_SETREGS, t->pid, NULL, &regs);
+
+            if (!bpt->oneshot) {
+                t->hit_index = i;
+                bpt->hitcount += 1;
+            } else {
+                bpt->addr = 0;
+                bpt->enabled = 0;
+                bpt->hitcount = 0;
+            }
+            break;
+        }
+    }
+}
+
+static void wait_tracee(Tracee *t) {
+    printf("enter wait: [%s]\n", tracee_states[t->state]);
+    if (t->state != kTraceeRunning) {
+        printf("exit wait: [%s]\n", tracee_states[t->state]);
+        return;
+    }
 
     int status = 0;
     pid_t wpid = waitpid(t->pid, &status, 0);
 
-    if (WIFEXITED(status))
+    if (WIFEXITED(status)) {
         t->state = kTraceeExit;
-    else if (WIFSTOPPED(status)) {
+    } else if (WIFSTOPPED(status)) {
         if (WSTOPSIG(status) == SIGTRAP)
             t->state = kTraceeTrap;
-        else
+        else {
             t->state = kTraceeStop;
-    } else
+            printf("in wait: stop signal [%d]\n", WSTOPSIG(status));
+        }
+    } else {
         t->state = kTraceeUnknown;
+    }
+
+    update_breakpoint_hit(t);
+    printf("exit wait: [%s]\n", tracee_states[t->state]);
 }
 
 void create_breakpoint(Tracee *t, const char *loc, int oneshot) {
@@ -122,12 +174,9 @@ void create_breakpoint(Tracee *t, const char *loc, int oneshot) {
         printf("%s: breakpoint argument error [%s]\n", __func__, loc);
         return;
     }
+    // TODO: handle duplicated breakpoints
 
-    bpt->original_data = ptrace(PTRACE_PEEKDATA, t->pid, bpt->addr, NULL);
-    long modified = (bpt->original_data & (~0xff)) | 0xcc;
-    ptrace(PTRACE_POKEDATA, t->pid, bpt->addr, (void *)modified);
-
-    bpt->enabled = 1;
+    enable_breakpoint(t->pid, bpt);
     bpt->oneshot = oneshot;
     bpt->hitcount = 0;
 }
@@ -159,16 +208,20 @@ void tracee_init(Tracee *t, int argc, char **argv) {
     }
     t->argv[argc] = NULL;
 
+    t->hit_index = -1;
+
     t->state = kTraceeReady;
     t->ops = &default_tracee_ops;
 }
 
 void tracee_destroy(Tracee *t) {
-    if (t == NULL)
+    if (t == NULL) {
         return;
+    }
 
-    if (t->program)
+    if (t->program) {
         free(t->program);
+    }
 
     if (t->argv) {
         int i = 0;
