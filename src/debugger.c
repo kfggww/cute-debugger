@@ -22,13 +22,20 @@ typedef struct Debugger {
 static Debugger *qdb = NULL;
 
 static void command_quit_handler(Command *cmd) {
-    if (cmd != NULL && cmd->type == kCommandQuit)
-        qdb->stoped = 1;
+    if (cmd == NULL || cmd->type != kCommandQuit)
+        return;
+
+    if (cmd->nparam != 0) {
+        printf("error: <quit> accept no arguments\n");
+        return;
+    }
+
+    qdb->stoped = 1;
 }
 
 static void command_start_handler(Command *cmd) {
     Tracee *t = qdb->current;
-    if (t == NULL || (t->state != kTraceeReady && t->state != kTraceeExit))
+    if (t == NULL || cmd == NULL)
         return;
 
     t->ops->start_tracee(t, cmd->nparam, cmd->params);
@@ -36,23 +43,25 @@ static void command_start_handler(Command *cmd) {
 
 static void command_continue_handler(Command *cmd) {
     Tracee *t = qdb->current;
-    if (t == NULL)
+    if (t == NULL || cmd == NULL)
         return;
+
+    if (cmd->nparam != 0) {
+        printf("error: <continue> accept no arguments\n");
+        return;
+    }
 
     t->ops->continue_tracee(t);
 }
 
 static void command_break_handler(Command *cmd) {
     Tracee *t = qdb->current;
-    if (t == NULL)
+    if (t == NULL || cmd == NULL)
         return;
 
     if (cmd->nparam != 1) {
-        printf("error usage of break, nparam=%d\n", cmd->nparam);
-        for (int i = 0; i < cmd->nparam; i++) {
-            printf("%s\n", cmd->params[i]);
-        }
-
+        printf("error: <break> accept only 1 argument but got %d\n",
+               cmd->nparam);
         return;
     }
 
@@ -62,7 +71,7 @@ static void command_break_handler(Command *cmd) {
 static struct CommandHandler {
     int type;
     void (*handler_fn)(Command *cmd);
-} command_handlers[] = {
+} command_dispatch_table[] = {
     {
         .type = kCommandQuit,
         .handler_fn = command_quit_handler,
@@ -72,12 +81,53 @@ static struct CommandHandler {
         .handler_fn = command_start_handler,
     },
     {
+        .type = kCommandRun,
+        .handler_fn = NULL,
+    },
+    {
         .type = kCommandContinue,
         .handler_fn = command_continue_handler,
     },
     {
         .type = kCommandBreak,
         .handler_fn = command_break_handler,
+    },
+    {
+        .type = kCommandTBreak,
+        .handler_fn = NULL,
+    },
+    {
+        .type = kCommandStep,
+        .handler_fn = NULL,
+    },
+    {
+        .type = kCommandNext,
+        .handler_fn = NULL,
+    },
+    {
+        .type = kCommandStepi,
+        .handler_fn = NULL,
+    },
+
+    {
+        .type = kCommandNexti,
+        .handler_fn = NULL,
+    },
+    {
+        .type = kCommandPrint,
+        .handler_fn = NULL,
+    },
+    {
+        .type = kCommandSet,
+        .handler_fn = NULL,
+    },
+    {
+        .type = kCommandInfo,
+        .handler_fn = NULL,
+    },
+    {
+        .type = kCommandList,
+        .handler_fn = NULL,
     },
     {.type = kCommandUnknown, .handler_fn = NULL},
 };
@@ -86,7 +136,7 @@ static void dispatch_command(Command *cmd) {
     if (cmd == NULL)
         return;
 
-    struct CommandHandler *handler = command_handlers;
+    struct CommandHandler *handler = command_dispatch_table;
     while (handler->type <= kCommandUnknown) {
         if (handler->type == cmd->type) {
             if (handler->handler_fn != NULL) {
